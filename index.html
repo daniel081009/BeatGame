@@ -2,12 +2,12 @@
 <html>
   <head>
     <link rel="manifest" href="manifest.json" />
-    <title>Beat Game | Main</title>
-    <mate charset="utf-8" />
+    <meta charset="utf-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
+    <title>Beat Game | Main</title>
     <style type="text/css">
       body {
         height: 100vh;
@@ -153,6 +153,50 @@
           format("woff2");
         font-weight: normal;
         font-style: normal;
+      }
+      @media screen and (max-width: 768px) {
+        .Card {
+          font-size: 5vh;
+        }
+        .Card_ACC {
+          font-size: 2.5vh;
+        }
+        .EndPrint {
+          font-size: 2.5vh;
+        }
+        .input {
+          width: 80vw;
+        }
+        .Ui {
+          font-size: 2vh;
+        }
+        #btn {
+          font-size: 2vh;
+        }
+      }
+      @media screen and (max-height: 480px) {
+        .Card {
+          font-size: 3vh;
+        }
+        .Card_ACC {
+          font-size: 1.5vw;
+        }
+        .EndPrint {
+          font-size: 1.5vw;
+        }
+        input[type="radio"] {
+          width: 15px;
+          height: 15px;
+        }
+        .input {
+          width: 80vw;
+        }
+        .Ui {
+          height: 50vh;
+        }
+        #btn {
+          font-size: 1.5vh;
+        }
       }
     </style>
   </head>

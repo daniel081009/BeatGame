@@ -6,3 +6,12 @@ if ("serviceWorker" in navigator) {
     console.log("Service Worker Registration Failed");
   }
 }
+document.documentElement.addEventListener(
+  "touchstart",
+  function (event) {
+    if (event.touches.length > 1) {
+      event.preventDefault();
+    }
+  },
+  false
+);
