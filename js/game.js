@@ -147,12 +147,12 @@ class Game {
     this.LiveWantBeatpattern.output.avgtime = avg;
   }
   CardACCPrint() {
+    if (this.loop == 0) {
+      // 첫번째 루프
+      return;
+    }
     var target = this.Cards[this.live_card_number - 1];
     if (this.live_card_number == 0) {
-      if (this.loop == 0) {
-        // 첫번째 루프
-        return;
-      }
       target = this.Cards[this.Cards.length - 1];
     }
 
