@@ -86,7 +86,7 @@ class Game {
       }
       this.CardACCPrint();
       this.UpdateCardChose();
-      if (loop != 0) {
+      if (this.loop != 0) {
         this.card_history.push(this.LiveWantBeatpattern);
       }
       this.InitLiveWantBeatpattern(
