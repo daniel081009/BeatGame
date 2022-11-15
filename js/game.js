@@ -86,7 +86,9 @@ class Game {
       }
       this.CardACCPrint();
       this.UpdateCardChose();
-      this.card_history.push(this.LiveWantBeatpattern);
+      if (loop != 0) {
+        this.card_history.push(this.LiveWantBeatpattern);
+      }
       this.InitLiveWantBeatpattern(
         this.beatlist.getbeatlist(this.live_card_number)
       );
