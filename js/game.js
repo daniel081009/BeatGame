@@ -2,6 +2,13 @@ import BeatList from "./beatlist.js";
 import BPM from "./bpm.js";
 import Met from "./met.js";
 
+// 게임 설정 상수
+const TIMING_THRESHOLD_MS = 150; // 정확도 판정 기준 (밀리초)
+const DEFAULT_AVGTIME_MS = 100; // NaN일 때 기본값
+const FIRST_BEAT_FREQUENCY_HZ = 1200; // 첫 박자 주파수
+const OTHER_BEAT_FREQUENCY_HZ = 1000; // 일반 박자 주파수
+const CARDS_PER_SET = 4; // 한 세트의 카드 개수
+
 const Level = {
   0: [[], [1]],
   1: [[], [1], [2, 2]],
@@ -39,8 +46,8 @@ class Game {
     this.card_history = [];
     this.live_card_number = 0;
     this.live_beat_number = 0;
-    this.new_card_number = 0;
-    this.LiveWantBeatpattern = {
+    this.prevCardNumber = 0;
+    this.liveWantBeatPattern = {
       need: [1],
       have: [],
       output: {
@@ -57,15 +64,24 @@ class Game {
     this.max_loop = parseInt(max_loop, 10);
     this.loop = 0;
     this.beatlist = new BeatList([[1], [1], [1], [1]]);
-    const delay = localStorage.getItem("delay");
-    this.bpm = new BPM(parseFloat(bpm), delay ? parseFloat(delay) : 0);
+
+    // localStorage 에러 처리
+    let delay = 0;
+    try {
+      const storedDelay = localStorage.getItem("delay");
+      delay = storedDelay ? parseFloat(storedDelay) : 0;
+    } catch (e) {
+      console.warn("Failed to read delay from localStorage:", e);
+    }
+
+    this.bpm = new BPM(parseFloat(bpm), delay);
     this.metronome = new Met(parseFloat(bpm));
     this.history = [];
     this.card_history = [];
     this.live_card_number = 0;
     this.live_beat_number = 0;
-    this.new_card_number = 0;
-    this.LiveWantBeatpattern = {
+    this.prevCardNumber = 0;
+    this.liveWantBeatPattern = {
       need: [1],
       have: [],
       output: {
@@ -100,7 +116,12 @@ class Game {
       this.CardACCPrint();
       this.UpdateCardChose();
       if (this.loop !== 0) {
-        this.card_history.push(this.LiveWantBeatpattern);
+        // Deep copy to prevent mutation
+        this.card_history.push({
+          need: [...this.liveWantBeatPattern.need],
+          have: [...this.liveWantBeatPattern.have],
+          output: { ...this.liveWantBeatPattern.output },
+        });
       }
       this.InitLiveWantBeatpattern(
         this.beatlist.getbeatlist(this.live_card_number)
@@ -116,11 +137,20 @@ class Game {
 
     const er = this.gethistoryErrclick();
     const avg = this.gethistoryAvgTime();
-    const totalAttempts = this.history.length * 4;
+    const totalAttempts = this.history.length * CARDS_PER_SET;
 
     const text = document.createElement("div");
     text.innerText = `시도: ${totalAttempts}\n실패: ${er}\n정확도: ${Math.round(avg)}ms`;
     document.querySelector(".EndPrint").appendChild(text);
+  }
+  cleanup() {
+    // 메모리 정리
+    if (this.metronome) {
+      this.metronome.cleanup();
+    }
+    this.history = [];
+    this.card_history = [];
+    this.play = false;
   }
   PrintStateGame(ch, avg, msg = "", target) {
     // classList 업데이트 (remove는 존재하지 않아도 안전함)
@@ -134,8 +164,8 @@ class Game {
     target.appendChild(text);
 
     // 상태 저장
-    this.LiveWantBeatpattern.output.state = ch;
-    this.LiveWantBeatpattern.output.avgtime = avg;
+    this.liveWantBeatPattern.output.state = ch;
+    this.liveWantBeatPattern.output.avgtime = avg;
   }
   CardACCPrint() {
     if (this.loop === 0) {
@@ -150,45 +180,42 @@ class Game {
       oldACC.remove();
     }
 
-    if (this.LiveWantBeatpattern.need.length === 0) {
-      if (this.LiveWantBeatpattern.have.length === 0) {
+    if (this.liveWantBeatPattern.need.length === 0) {
+      if (this.liveWantBeatPattern.have.length === 0) {
         this.PrintStateGame(true, 0, null, target);
       } else {
         this.PrintStateGame(false, 0, null, target);
       }
       return;
-    } else if (this.LiveWantBeatpattern.have.length === 0) {
+    } else if (this.liveWantBeatPattern.have.length === 0) {
       this.PrintStateGame(false, 0, null, target);
       return;
     }
 
-    let sum = this.LiveWantBeatpattern.have.reduce((a, c) => a + c);
-    let avg = sum / this.LiveWantBeatpattern.have.length;
-    this.LiveWantBeatpattern.output.avgtime = avg;
+    let sum = this.liveWantBeatPattern.have.reduce((a, c) => a + c);
+    let avg = sum / this.liveWantBeatPattern.have.length;
+    this.liveWantBeatPattern.output.avgtime = avg;
 
-    this.LiveWantBeatpattern.output.state =
-      this.LiveWantBeatpattern.have.length ===
-        this.LiveWantBeatpattern.need.length &&
-      this.LiveWantBeatpattern.output.avgtime <= 150;
+    this.liveWantBeatPattern.output.state =
+      this.liveWantBeatPattern.have.length ===
+        this.liveWantBeatPattern.need.length &&
+      this.liveWantBeatPattern.output.avgtime <= TIMING_THRESHOLD_MS;
 
-    if (this.LiveWantBeatpattern.output.state) {
+    if (this.liveWantBeatPattern.output.state) {
       this.PrintStateGame(true, avg, null, target);
     } else {
       if (
-        this.LiveWantBeatpattern.have.length !==
-        this.LiveWantBeatpattern.need.length
+        this.liveWantBeatPattern.have.length !==
+        this.liveWantBeatPattern.need.length
       ) {
         this.PrintStateGame(false, avg, "Too Many", target);
       } else {
         this.PrintStateGame(false, avg, "Too Slow OR Fast", target);
       }
     }
-    if (isNaN(this.LiveWantBeatpattern.output.avgtime)) {
-      this.LiveWantBeatpattern.output.avgtime = 100;
-    }
   }
   InitLiveWantBeatpattern(need) {
-    this.LiveWantBeatpattern = {
+    this.liveWantBeatPattern = {
       need: need,
       have: [],
       output: {
@@ -213,6 +240,8 @@ class Game {
     );
   }
   gethistoryAvgTime() {
+    if (this.history.length === 0) return 0;
+
     return (
       this.history
         .map((e) => e.map((e) => e.output.avgtime))
@@ -221,6 +250,8 @@ class Game {
     );
   }
   gethistoryErrclick() {
+    if (this.history.length === 0) return 0;
+
     return this.history
       .map((e) => e.map((e) => e.output.state))
       .map((e) => e.filter((e) => e === false).length)

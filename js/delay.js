@@ -1,8 +1,12 @@
 import BPM from "./bpm.js";
 import Metronome from "./met.js";
 
-let bpm = new BPM(100, 0);
-let metronome = new Metronome(100);
+// 딜레이 측정 설정
+const CALIBRATION_BEATS = 10; // 딜레이 측정에 필요한 비트 수
+const DEFAULT_BPM = 100; // 기본 BPM
+
+let bpm = new BPM(DEFAULT_BPM, 0);
+let metronome = new Metronome(DEFAULT_BPM);
 let Game_start = false;
 
 const average = (arr) => arr.reduce((p, c) => p + c, 0) / arr.length;
@@ -22,19 +26,24 @@ let beat_list = [];
 document.onkeydown = function (e) {
   if (Game_start && e.code === "Space") {
     e.preventDefault();
-    if (count > 9) {
+    if (count >= CALIBRATION_BEATS) {
       metronome.startStop();
       const avgDelay = average(beat_list);
       countDisplay.innerText = avgDelay + "ms";
-      localStorage.setItem("delay", avgDelay);
-      beat_list = [];
 
+      try {
+        localStorage.setItem("delay", avgDelay);
+      } catch (e) {
+        console.warn("Failed to save delay to localStorage:", e);
+      }
+
+      beat_list = [];
       count = 0;
       startBtn.style.display = "block";
       Game_start = false;
       location.replace("./");
     } else {
-      beat_list.push(bpm.BPMCheck(new Date().getTime(), 1));
+      beat_list.push(bpm.BPMCheck(performance.now(), 1));
       countDisplay.innerText = average(beat_list) + "ms";
       count++;
     }

@@ -17,17 +17,17 @@ game.UserEnd = toggle;
 function handleGameInput() {
   if (!game.play) return;
 
-  if (game.new_card_number !== game.live_card_number) {
-    game.new_card_number = game.live_card_number;
+  if (game.prevCardNumber !== game.live_card_number) {
+    game.prevCardNumber = game.live_card_number;
     game.live_beat_number = 0;
   }
 
-  if (game.live_beat_number < game.LiveWantBeatpattern.need.length) {
+  if (game.live_beat_number < game.liveWantBeatPattern.need.length) {
     const d = game.bpm.BPMCheck(
-      new Date().getTime(),
-      game.LiveWantBeatpattern.need[game.live_beat_number]
+      performance.now(),
+      game.liveWantBeatPattern.need[game.live_beat_number]
     );
-    game.LiveWantBeatpattern.have.push(d);
+    game.liveWantBeatPattern.have.push(d);
     game.live_beat_number++;
   }
 }
