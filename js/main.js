@@ -85,5 +85,5 @@ document.getElementById("btn").addEventListener("click", () => {
   }
 
   toggle();
-  game.Start(bpmInput.value, levelInput.value, 16);
+  game.start(bpmInput.value, levelInput.value, 16);
 });
