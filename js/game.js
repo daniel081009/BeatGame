@@ -103,11 +103,10 @@ class Game {
 
     let er = this.geethistoryErrclick();
     let avg = this.gethistoryAvgTime();
+    let totalAttempts = this.history.length * 4;
 
     let text = document.createElement("div");
-    text.innerText = `실패:${
-      this.history.length * 4 - 1
-    }/${er}\n정확도: ${Math.round(avg)}ms`;
+    text.innerText = `시도: ${totalAttempts}\n실패: ${er}\n정확도: ${Math.round(avg)}ms`;
     document.getElementsByClassName("EndPrint")[0].appendChild(text);
   }
   PrintStateGame(ch, avg, msg = "", target) {
@@ -163,20 +162,20 @@ class Game {
     } catch (e) {}
 
     if (this.LiveWantBeatpattern.need.join("") == [].join("")) {
-      if (this.LiveWantBeatpattern.have == "") {
+      if (this.LiveWantBeatpattern.have.length === 0) {
         this.PrintStateGame(true, 0, null, target);
       } else {
         this.PrintStateGame(false, 0, null, target);
       }
       return;
-    } else if (this.LiveWantBeatpattern.have == "") {
+    } else if (this.LiveWantBeatpattern.have.length === 0) {
       this.PrintStateGame(false, 0, null, target);
       return;
     }
 
-    let avg = this.LiveWantBeatpattern.have.reduce((a, c) => a + c);
-    this.LiveWantBeatpattern.output.avgtime =
-      avg / this.LiveWantBeatpattern.have.length;
+    let sum = this.LiveWantBeatpattern.have.reduce((a, c) => a + c);
+    let avg = sum / this.LiveWantBeatpattern.have.length;
+    this.LiveWantBeatpattern.output.avgtime = avg;
 
     this.LiveWantBeatpattern.output.state =
       this.LiveWantBeatpattern.have.length ==
@@ -190,9 +189,9 @@ class Game {
         this.LiveWantBeatpattern.have.length !=
         this.LiveWantBeatpattern.need.length
       ) {
-        this.PrintStateGame(false, avg, "To Many", target);
+        this.PrintStateGame(false, avg, "Too Many", target);
       } else {
-        this.PrintStateGame(false, avg, "To Slow OR Fast", target);
+        this.PrintStateGame(false, avg, "Too Slow OR Fast", target);
       }
     }
     if (isNaN(this.LiveWantBeatpattern.output.avgtime)) {
@@ -219,7 +218,7 @@ class Game {
   }
   Next() {
     this.beatlist.changebeatlistitem(
-      getRandomArbitrary(0, this.beatlist.beatlist.length - 1),
+      getRandomArbitrary(0, this.beatlist.beatlist.length),
       Level[this.level][getRandomArbitrary(0, Level[this.level].length)]
     );
   }
@@ -259,7 +258,7 @@ class Game {
         img.src = "./img/16.png";
       } else if (list[i].join("") === [3, 3, 3].join("")) {
         img.src = "./img/3.png";
-      } else if (list[i] == "") {
+      } else if (list[i].length === 0) {
         img.src = "./img/0.png";
       }
       target.appendChild(img);
