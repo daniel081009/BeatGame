@@ -11,6 +11,17 @@ const Level = {
   5: [[], [2, 4, 4], [4, 4, 2], [4, 4, 4, 4], [3, 3, 3]],
 };
 
+// 패턴을 이미지 경로로 매핑
+const PATTERN_TO_IMAGE = new Map([
+  ["", "./img/0.png"],
+  ["1", "./img/4.png"],
+  ["22", "./img/8.png"],
+  ["244", "./img/2-4-4.png"],
+  ["442", "./img/4-4-2.png"],
+  ["4444", "./img/16.png"],
+  ["333", "./img/3.png"],
+]);
+
 function getRandomArbitrary(min, max) {
   return Math.floor(Math.random() * (max - min) + min);
 }
@@ -67,12 +78,12 @@ class Game {
     this.init(bpm, level, max_loop);
     this.UpdateCardTexts(this.beatlist.beatlist);
 
-    try {
-      document
-        .getElementsByClassName("EndPrint")[0]
-        .getElementsByTagName("div")[0]
-        .remove();
-    } catch (e) {}
+    // EndPrint 초기화
+    const endPrint = document.querySelector(".EndPrint");
+    const endPrintDiv = endPrint?.querySelector("div");
+    if (endPrintDiv) {
+      endPrintDiv.remove();
+    }
     this.metronome.runfunc = () => {
       if (this.live_card_number === this.Cards.length) {
         this.live_card_number = 0;
@@ -103,49 +114,26 @@ class Game {
     this.metronome.startStop();
     this.play = false;
 
-    let er = this.geethistoryErrclick();
-    let avg = this.gethistoryAvgTime();
-    let totalAttempts = this.history.length * 4;
+    const er = this.gethistoryErrclick();
+    const avg = this.gethistoryAvgTime();
+    const totalAttempts = this.history.length * 4;
 
-    let text = document.createElement("div");
+    const text = document.createElement("div");
     text.innerText = `시도: ${totalAttempts}\n실패: ${er}\n정확도: ${Math.round(avg)}ms`;
-    document.getElementsByClassName("EndPrint")[0].appendChild(text);
+    document.querySelector(".EndPrint").appendChild(text);
   }
   PrintStateGame(ch, avg, msg = "", target) {
-    var text = document.createElement("div");
-    text.classList.add("Card_ACC");
+    // classList 업데이트 (remove는 존재하지 않아도 안전함)
+    target.classList.remove("good", "bad");
+    target.classList.add(ch ? "good" : "bad");
 
-    if (!msg) {
-      if (ch) {
-        try {
-          target.classList.remove("bad");
-          target.classList.add("good");
-        } catch (e) {}
-        text.innerText = "Good!";
-        target.appendChild(text);
-      } else {
-        try {
-          target.classList.remove("good");
-          target.classList.add("bad");
-        } catch (e) {}
-        text.innerText = "Miss";
-        target.appendChild(text);
-      }
-    } else {
-      if (ch) {
-        try {
-          target.classList.remove("bad");
-          target.classList.add("good");
-        } catch (e) {}
-      } else {
-        try {
-          target.classList.remove("good");
-          target.classList.add("bad");
-        } catch (e) {}
-      }
-      text.innerText = msg;
-      target.appendChild(text);
-    }
+    // 텍스트 생성 및 추가
+    const text = document.createElement("div");
+    text.classList.add("Card_ACC");
+    text.innerText = msg || (ch ? "Good!" : "Miss");
+    target.appendChild(text);
+
+    // 상태 저장
     this.LiveWantBeatpattern.output.state = ch;
     this.LiveWantBeatpattern.output.avgtime = avg;
   }
@@ -154,16 +142,15 @@ class Game {
       // 첫번째 루프
       return;
     }
-    var target = this.Cards[this.live_card_number - 1];
-    if (this.live_card_number === 0) {
-      target = this.Cards[this.Cards.length - 1];
+    const target = this.Cards[this.live_card_number - 1] || this.Cards[this.Cards.length - 1];
+
+    // 기존 ACC 요소 제거
+    const oldACC = target.querySelector(".Card_ACC");
+    if (oldACC) {
+      oldACC.remove();
     }
 
-    try {
-      target.removeChild(target.getElementsByClassName("Card_ACC")[0]);
-    } catch (e) {}
-
-    if (this.LiveWantBeatpattern.need.join("") === [].join("")) {
+    if (this.LiveWantBeatpattern.need.length === 0) {
       if (this.LiveWantBeatpattern.have.length === 0) {
         this.PrintStateGame(true, 0, null, target);
       } else {
@@ -219,9 +206,10 @@ class Game {
     return false;
   }
   Next() {
+    const levelPatterns = Level[this.level];
     this.beatlist.changebeatlistitem(
       getRandomArbitrary(0, this.beatlist.beatlist.length),
-      Level[this.level][getRandomArbitrary(0, Level[this.level].length)]
+      levelPatterns[getRandomArbitrary(0, levelPatterns.length)]
     );
   }
   gethistoryAvgTime() {
@@ -232,52 +220,40 @@ class Game {
         .reduce((a, c) => a + c) / this.history.length
     );
   }
-  geethistoryErrclick() {
+  gethistoryErrclick() {
     return this.history
       .map((e) => e.map((e) => e.output.state))
-      .map((e) => e.filter((e) => e == false).length)
+      .map((e) => e.filter((e) => e === false).length)
       .reduce((a, c) => a + c);
   }
   UpdateCardTexts(list) {
     for (let i = 0; i < list.length; i++) {
       let target = this.Cards[i];
-      try {
-        target.removeChild(target.getElementsByClassName("Card_img")[0]);
-      } catch (e) {}
+      let existingImg = target.querySelector(".Card_img");
+      const pattern = list[i].join("");
+      const imgSrc = PATTERN_TO_IMAGE.get(pattern) || "./img/0.png";
 
-      let img = document.createElement("img");
-      img.className = "Card_img";
-
-      if (list[i].join("") === [1].join("")) {
-        img.src = "./img/4.png";
-      } else if (list[i].join("") === [2, 2].join("")) {
-        img.src = "./img/8.png";
-      } else if (list[i].join("") === [2, 4, 4].join("")) {
-        img.src = "./img/2-4-4.png";
-      } else if (list[i].join("") === [4, 4, 2].join("")) {
-        img.src = "./img/4-4-2.png";
-      } else if (list[i].join("") === [4, 4, 4, 4].join("")) {
-        img.src = "./img/16.png";
-      } else if (list[i].join("") === [3, 3, 3].join("")) {
-        img.src = "./img/3.png";
-      } else if (list[i].length === 0) {
-        img.src = "./img/0.png";
+      if (existingImg) {
+        // 기존 이미지가 있으면 src만 변경
+        existingImg.src = imgSrc;
+      } else {
+        // 없으면 새로 생성
+        let img = document.createElement("img");
+        img.className = "Card_img";
+        img.src = imgSrc;
+        target.appendChild(img);
       }
-      target.appendChild(img);
     }
   }
   UpdateCardChose() {
-    let target = this.Cards[this.live_card_number];
-    try {
-      target.classList.remove("good");
-      target.classList.remove("bad");
-    } catch (e) {}
+    const target = this.Cards[this.live_card_number];
+    target.classList.remove("good", "bad");
     target.classList.toggle("Card_CH");
-    if (this.live_card_number === 0) {
-      this.Cards[this.Cards.length - 1].classList.remove("Card_CH");
-    } else {
-      this.Cards[this.live_card_number - 1].classList.remove("Card_CH");
-    }
+
+    const prevCard = this.live_card_number === 0
+      ? this.Cards[this.Cards.length - 1]
+      : this.Cards[this.live_card_number - 1];
+    prevCard.classList.remove("Card_CH");
   }
 }
 

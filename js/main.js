@@ -5,29 +5,37 @@ const Cards = document.querySelectorAll(".Card");
 var game = new Game(Cards);
 
 function toggle() {
-  document.getElementsByClassName("EndPrint")[0].classList.toggle("invisible");
-  document.getElementsByClassName("GameBord")[0].classList.toggle("invisible");
-  document.getElementsByClassName("setting")[0].classList.toggle("invisible");
+  document.querySelector(".EndPrint").classList.toggle("invisible");
+  document.querySelector(".GameBord").classList.toggle("invisible");
+  document.querySelector(".setting").classList.toggle("invisible");
   document.getElementById("btn").classList.toggle("invisible");
 }
 
 game.UserEnd = toggle;
 
+// 통합된 입력 처리 함수
+function handleGameInput() {
+  if (!game.play) return;
+
+  if (game.new_card_number !== game.live_card_number) {
+    game.new_card_number = game.live_card_number;
+    game.live_beat_number = 0;
+  }
+
+  if (game.live_beat_number < game.LiveWantBeatpattern.need.length) {
+    const d = game.bpm.BPMCheck(
+      new Date().getTime(),
+      game.LiveWantBeatpattern.need[game.live_beat_number]
+    );
+    game.LiveWantBeatpattern.have.push(d);
+    game.live_beat_number++;
+  }
+}
+
 document.onkeydown = function (e) {
   if (game.play && e.code === "Space") {
     e.preventDefault();
-    if (game.new_card_number !== game.live_card_number) {
-      game.new_card_number = game.live_card_number;
-      game.live_beat_number = 0;
-    }
-    if (game.live_beat_number < game.LiveWantBeatpattern.need.length) {
-      const d = game.bpm.BPMCheck(
-        new Date().getTime(),
-        game.LiveWantBeatpattern.need[game.live_beat_number]
-      );
-      game.LiveWantBeatpattern.have.push(d);
-      game.live_beat_number++;
-    }
+    handleGameInput();
   }
 };
 
@@ -36,18 +44,7 @@ document.documentElement.addEventListener(
   function (event) {
     if (game.play) {
       event.preventDefault();
-      if (game.new_card_number !== game.live_card_number) {
-        game.new_card_number = game.live_card_number;
-        game.live_beat_number = 0;
-      }
-      if (game.live_beat_number < game.LiveWantBeatpattern.need.length) {
-        const d = game.bpm.BPMCheck(
-          new Date().getTime(),
-          game.LiveWantBeatpattern.need[game.live_beat_number]
-        );
-        game.LiveWantBeatpattern.have.push(d);
-        game.live_beat_number++;
-      }
+      handleGameInput();
     }
   },
   false
@@ -68,8 +65,8 @@ document.documentElement.addEventListener(
 // };
 
 document.getElementById("btn").addEventListener("click", () => {
-  const bpmInput = document.querySelector("#bpm");
-  const levelInput = document.querySelector("input[type=radio]:checked");
+  const bpmInput = document.getElementById("bpm");
+  const levelInput = document.querySelector("input[name=drone]:checked");
 
   if (!bpmInput || !bpmInput.value) {
     alert("BPM을 입력해주세요.");
