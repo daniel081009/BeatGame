@@ -18,7 +18,7 @@ class Metronome {
     this.nextNoteTime += secondsPerBeat;
 
     this.currentBeatInBar++;
-    if (this.currentBeatInBar == this.beatsPerBar) {
+    if (this.currentBeatInBar === this.beatsPerBar) {
       this.currentBeatInBar = 0;
     }
   }
@@ -29,7 +29,7 @@ class Metronome {
     const osc = this.audioContext.createOscillator();
     const envelope = this.audioContext.createGain();
 
-    osc.frequency.value = beatNumber % this.beatsPerBar == 0 ? 1200 : 1000;
+    osc.frequency.value = beatNumber % this.beatsPerBar === 0 ? 1200 : 1000;
     envelope.gain.value = 1;
     envelope.gain.exponentialRampToValueAtTime(1, time + 0.001);
     envelope.gain.exponentialRampToValueAtTime(0.001, time + 0.02);
@@ -55,7 +55,7 @@ class Metronome {
   start() {
     if (this.isRunning) return;
 
-    if (this.audioContext == null) {
+    if (this.audioContext === null) {
       this.audioContext = new (window.AudioContext ||
         window.webkitAudioContext)();
     }

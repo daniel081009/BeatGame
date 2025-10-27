@@ -13,18 +13,21 @@ function toggle() {
 
 game.UserEnd = toggle;
 
-document.onkeydown = function () {
-  if (game.play) {
-    if (game.new_card_number != game.live_card_number) {
+document.onkeydown = function (e) {
+  if (game.play && e.code === "Space") {
+    e.preventDefault();
+    if (game.new_card_number !== game.live_card_number) {
       game.new_card_number = game.live_card_number;
       game.live_beat_number = 0;
     }
-    const d = game.bpm.BPMCheck(
-      new Date().getTime(),
-      game.LiveWantBeatpattern.need[game.live_beat_number]
-    );
-    game.LiveWantBeatpattern.have.push(d);
-    game.live_beat_number++;
+    if (game.live_beat_number < game.LiveWantBeatpattern.need.length) {
+      const d = game.bpm.BPMCheck(
+        new Date().getTime(),
+        game.LiveWantBeatpattern.need[game.live_beat_number]
+      );
+      game.LiveWantBeatpattern.have.push(d);
+      game.live_beat_number++;
+    }
   }
 };
 
@@ -33,16 +36,18 @@ document.documentElement.addEventListener(
   function (event) {
     if (game.play) {
       event.preventDefault();
-      if (game.new_card_number != game.live_card_number) {
+      if (game.new_card_number !== game.live_card_number) {
         game.new_card_number = game.live_card_number;
         game.live_beat_number = 0;
       }
-      const d = game.bpm.BPMCheck(
-        new Date().getTime(),
-        game.LiveWantBeatpattern.need[game.live_beat_number]
-      );
-      game.LiveWantBeatpattern.have.push(d);
-      game.live_beat_number++;
+      if (game.live_beat_number < game.LiveWantBeatpattern.need.length) {
+        const d = game.bpm.BPMCheck(
+          new Date().getTime(),
+          game.LiveWantBeatpattern.need[game.live_beat_number]
+        );
+        game.LiveWantBeatpattern.have.push(d);
+        game.live_beat_number++;
+      }
     }
   },
   false
@@ -63,10 +68,25 @@ document.documentElement.addEventListener(
 // };
 
 document.getElementById("btn").addEventListener("click", () => {
+  const bpmInput = document.querySelector("#bpm");
+  const levelInput = document.querySelector("input[type=radio]:checked");
+
+  if (!bpmInput || !bpmInput.value) {
+    alert("BPM을 입력해주세요.");
+    return;
+  }
+
+  const bpmValue = parseFloat(bpmInput.value);
+  if (isNaN(bpmValue) || bpmValue <= 0 || bpmValue > 300) {
+    alert("BPM은 1~300 사이의 숫자를 입력해주세요.");
+    return;
+  }
+
+  if (!levelInput) {
+    alert("레벨을 선택해주세요.");
+    return;
+  }
+
   toggle();
-  game.Start(
-    document.querySelector("#bpm").value,
-    document.querySelector("input[type=radio]:checked").value,
-    16
-  );
+  game.Start(bpmInput.value, levelInput.value, 16);
 });

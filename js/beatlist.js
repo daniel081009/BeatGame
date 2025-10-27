@@ -1,6 +1,6 @@
 class BeatList {
   constructor(beatlist) {
-    if (beatlist.length == 4) {
+    if (beatlist.length === 4) {
       this.beatlist = beatlist;
     } else {
       throw new Error("beatlist length is not 4");

@@ -42,13 +42,15 @@ class Game {
   }
   init(bpm, level, max_loop) {
     this.play = true;
-    this.level = level;
-    this.max_loop = max_loop;
+    this.level = parseInt(level, 10);
+    this.max_loop = parseInt(max_loop, 10);
     this.loop = 0;
     this.beatlist = new BeatList([[1], [1], [1], [1]]);
-    this.bpm = new BPM(bpm, localStorage.getItem("delay"));
-    this.metronome = new Met(bpm);
+    const delay = localStorage.getItem("delay");
+    this.bpm = new BPM(parseFloat(bpm), delay ? parseFloat(delay) : 0);
+    this.metronome = new Met(parseFloat(bpm));
     this.history = [];
+    this.card_history = [];
     this.live_card_number = 0;
     this.live_beat_number = 0;
     this.new_card_number = 0;
@@ -72,13 +74,13 @@ class Game {
         .remove();
     } catch (e) {}
     this.metronome.runfunc = () => {
-      if (this.live_card_number == this.Cards.length) {
+      if (this.live_card_number === this.Cards.length) {
         this.live_card_number = 0;
         if (this.AddLoop()) {
           this.End();
           return;
         }
-      } else if (this.live_card_number == 3) {
+      } else if (this.live_card_number === this.Cards.length - 1) {
         this.Next();
         this.AddHistory(this.card_history);
         this.UpdateCardTexts(this.beatlist.beatlist);
@@ -86,7 +88,7 @@ class Game {
       }
       this.CardACCPrint();
       this.UpdateCardChose();
-      if (this.loop != 0) {
+      if (this.loop !== 0) {
         this.card_history.push(this.LiveWantBeatpattern);
       }
       this.InitLiveWantBeatpattern(
@@ -148,12 +150,12 @@ class Game {
     this.LiveWantBeatpattern.output.avgtime = avg;
   }
   CardACCPrint() {
-    if (this.loop == 0) {
+    if (this.loop === 0) {
       // 첫번째 루프
       return;
     }
     var target = this.Cards[this.live_card_number - 1];
-    if (this.live_card_number == 0) {
+    if (this.live_card_number === 0) {
       target = this.Cards[this.Cards.length - 1];
     }
 
@@ -161,7 +163,7 @@ class Game {
       target.removeChild(target.getElementsByClassName("Card_ACC")[0]);
     } catch (e) {}
 
-    if (this.LiveWantBeatpattern.need.join("") == [].join("")) {
+    if (this.LiveWantBeatpattern.need.join("") === [].join("")) {
       if (this.LiveWantBeatpattern.have.length === 0) {
         this.PrintStateGame(true, 0, null, target);
       } else {
@@ -178,7 +180,7 @@ class Game {
     this.LiveWantBeatpattern.output.avgtime = avg;
 
     this.LiveWantBeatpattern.output.state =
-      this.LiveWantBeatpattern.have.length ==
+      this.LiveWantBeatpattern.have.length ===
         this.LiveWantBeatpattern.need.length &&
       this.LiveWantBeatpattern.output.avgtime <= 150;
 
@@ -186,7 +188,7 @@ class Game {
       this.PrintStateGame(true, avg, null, target);
     } else {
       if (
-        this.LiveWantBeatpattern.have.length !=
+        this.LiveWantBeatpattern.have.length !==
         this.LiveWantBeatpattern.need.length
       ) {
         this.PrintStateGame(false, avg, "Too Many", target);
@@ -212,7 +214,7 @@ class Game {
     this.history.push(history);
   }
   AddLoop() {
-    if (this.loop != this.max_loop) this.loop++;
+    if (this.loop !== this.max_loop) this.loop++;
     else return true;
     return false;
   }
@@ -271,7 +273,7 @@ class Game {
       target.classList.remove("bad");
     } catch (e) {}
     target.classList.toggle("Card_CH");
-    if (this.live_card_number == 0) {
+    if (this.live_card_number === 0) {
       this.Cards[this.Cards.length - 1].classList.remove("Card_CH");
     } else {
       this.Cards[this.live_card_number - 1].classList.remove("Card_CH");

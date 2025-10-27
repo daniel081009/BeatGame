@@ -8,10 +8,10 @@ class BPM {
     this.lastbeat = 1;
   }
   BPMCheck(now, beat) {
-    if (this.last == 0) {
+    if (this.last === 0) {
       this.last = now;
       return 0;
-    } else if (this.lastbeat != beat && beat == 1) {
+    } else if (this.lastbeat !== beat && beat === 1) {
       this.last = now - Minute / this.BPM / beat;
     }
     const beat_ms = now - this.last - this.delay;

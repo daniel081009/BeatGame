@@ -15,7 +15,8 @@ document.getElementById("start").onclick = function () {
 let count = 0;
 let beat_list = [];
 document.onkeydown = async function (e) {
-  if (Game_start) {
+  if (Game_start && e.code === "Space") {
+    e.preventDefault();
     if (count > 9) {
       metronome.startStop();
       document.getElementById("count").innerText = average(beat_list) + "ms";
