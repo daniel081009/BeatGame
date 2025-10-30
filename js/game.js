@@ -2,6 +2,13 @@ import BeatList from "./beatlist.js";
 import BPM from "./bpm.js";
 import Met from "./met.js";
 
+// 게임 설정 상수
+const TIMING_THRESHOLD_MS = 150; // 정확도 판정 기준 (밀리초)
+const DEFAULT_AVGTIME_MS = 100; // NaN일 때 기본값
+const FIRST_BEAT_FREQUENCY_HZ = 1200; // 첫 박자 주파수
+const OTHER_BEAT_FREQUENCY_HZ = 1000; // 일반 박자 주파수
+const CARDS_PER_SET = 4; // 한 세트의 카드 개수
+
 const Level = {
   0: [[], [1]],
   1: [[], [1], [2, 2]],
@@ -10,6 +17,17 @@ const Level = {
   4: [[], [1], [2, 2], [2, 4, 4], [4, 4, 2], [4, 4, 4, 4], [3, 3, 3]],
   5: [[], [2, 4, 4], [4, 4, 2], [4, 4, 4, 4], [3, 3, 3]],
 };
+
+// 패턴을 이미지 경로로 매핑
+const PATTERN_TO_IMAGE = new Map([
+  ["", "./img/0.png"],
+  ["1", "./img/4.png"],
+  ["22", "./img/8.png"],
+  ["244", "./img/2-4-4.png"],
+  ["442", "./img/4-4-2.png"],
+  ["4444", "./img/16.png"],
+  ["333", "./img/3.png"],
+]);
 
 function getRandomArbitrary(min, max) {
   return Math.floor(Math.random() * (max - min) + min);
@@ -25,11 +43,10 @@ class Game {
     this.bpm = null;
     this.metronome = null;
     this.history = [];
-    this.card_history = [];
     this.live_card_number = 0;
     this.live_beat_number = 0;
-    this.new_card_number = 0;
-    this.LiveWantBeatpattern = {
+    this.prevCardNumber = 0;
+    this.liveWantBeatPattern = {
       need: [1],
       have: [],
       output: {
@@ -42,17 +59,27 @@ class Game {
   }
   init(bpm, level, max_loop) {
     this.play = true;
-    this.level = level;
-    this.max_loop = max_loop;
+    this.level = parseInt(level, 10);
+    this.max_loop = parseInt(max_loop, 10);
     this.loop = 0;
     this.beatlist = new BeatList([[1], [1], [1], [1]]);
-    this.bpm = new BPM(bpm, localStorage.getItem("delay"));
-    this.metronome = new Met(bpm);
+
+    // localStorage 에러 처리
+    let delay = 0;
+    try {
+      const storedDelay = localStorage.getItem("delay");
+      delay = storedDelay ? parseFloat(storedDelay) : 0;
+    } catch (e) {
+      console.warn("Failed to read delay from localStorage:", e);
+    }
+
+    this.bpm = new BPM(parseFloat(bpm), delay);
+    this.metronome = new Met(parseFloat(bpm));
     this.history = [];
     this.live_card_number = 0;
     this.live_beat_number = 0;
-    this.new_card_number = 0;
-    this.LiveWantBeatpattern = {
+    this.prevCardNumber = 0;
+    this.liveWantBeatPattern = {
       need: [1],
       have: [],
       output: {
@@ -61,145 +88,144 @@ class Game {
       },
     };
   }
-  Start(bpm, level, max_loop) {
+  start(bpm, level, max_loop) {
     this.init(bpm, level, max_loop);
-    this.UpdateCardTexts(this.beatlist.beatlist);
+    this.updateCardTexts(this.beatlist.beatlist);
 
-    try {
-      document
-        .getElementsByClassName("EndPrint")[0]
-        .getElementsByTagName("div")[0]
-        .remove();
-    } catch (e) {}
+    // EndPrint 초기화
+    const endPrint = document.querySelector(".EndPrint");
+    const endPrintDiv = endPrint?.querySelector("div");
+    if (endPrintDiv) {
+      endPrintDiv.remove();
+    }
     this.metronome.runfunc = () => {
-      if (this.live_card_number == this.Cards.length) {
+      // New loop starting
+      if (this.live_card_number === this.Cards.length) {
         this.live_card_number = 0;
-        if (this.AddLoop()) {
-          this.End();
+
+        // Check if game should end
+        if (this.addLoop()) {
+          this.end();
           return;
         }
-      } else if (this.live_card_number == 3) {
-        this.Next();
-        this.AddHistory(this.card_history);
-        this.UpdateCardTexts(this.beatlist.beatlist);
-        this.card_history = [];
+
+        // Update card images for new loop (after Next() was called in previous loop)
+        this.updateCardTexts(this.beatlist.beatlist);
       }
-      this.CardACCPrint();
+
+      this.printCardAccuracy();
       this.UpdateCardChose();
-      if (this.loop != 0) {
-        this.card_history.push(this.LiveWantBeatpattern);
+
+      // Record history (except first loop)
+      if (this.loop !== 0) {
+        // Deep copy and directly push to history
+        this.history.push({
+          need: [...this.liveWantBeatPattern.need],
+          have: [...this.liveWantBeatPattern.have],
+          output: { ...this.liveWantBeatPattern.output },
+        });
       }
-      this.InitLiveWantBeatpattern(
+
+      this.initLiveWantBeatPattern(
         this.beatlist.getbeatlist(this.live_card_number)
       );
+
+      // Last card - prepare next loop pattern
+      if (this.live_card_number === this.Cards.length - 1) {
+        this.next();
+      }
+
       this.live_card_number++;
     };
     this.metronome.startStop();
   }
-  End() {
+  end() {
     this.UserEnd();
     this.metronome.startStop();
     this.play = false;
 
-    let er = this.geethistoryErrclick();
-    let avg = this.gethistoryAvgTime();
-    let totalAttempts = this.history.length * 4;
+    const er = this.gethistoryErrclick();
+    const avg = this.gethistoryAvgTime();
+    const totalAttempts = this.history.length;
 
-    let text = document.createElement("div");
+    const text = document.createElement("div");
     text.innerText = `시도: ${totalAttempts}\n실패: ${er}\n정확도: ${Math.round(avg)}ms`;
-    document.getElementsByClassName("EndPrint")[0].appendChild(text);
+    document.querySelector(".EndPrint").appendChild(text);
   }
-  PrintStateGame(ch, avg, msg = "", target) {
-    var text = document.createElement("div");
-    text.classList.add("Card_ACC");
-
-    if (!msg) {
-      if (ch) {
-        try {
-          target.classList.remove("bad");
-          target.classList.add("good");
-        } catch (e) {}
-        text.innerText = "Good!";
-        target.appendChild(text);
-      } else {
-        try {
-          target.classList.remove("good");
-          target.classList.add("bad");
-        } catch (e) {}
-        text.innerText = "Miss";
-        target.appendChild(text);
-      }
-    } else {
-      if (ch) {
-        try {
-          target.classList.remove("bad");
-          target.classList.add("good");
-        } catch (e) {}
-      } else {
-        try {
-          target.classList.remove("good");
-          target.classList.add("bad");
-        } catch (e) {}
-      }
-      text.innerText = msg;
-      target.appendChild(text);
+  cleanup() {
+    // 메모리 정리
+    if (this.metronome) {
+      this.metronome.cleanup();
     }
-    this.LiveWantBeatpattern.output.state = ch;
-    this.LiveWantBeatpattern.output.avgtime = avg;
+    this.history = [];
+    this.play = false;
   }
-  CardACCPrint() {
-    if (this.loop == 0) {
+  printStateGame(ch, avg, msg = "", target) {
+    // classList 업데이트 (remove는 존재하지 않아도 안전함)
+    target.classList.remove("good", "bad");
+    target.classList.add(ch ? "good" : "bad");
+
+    // 텍스트 생성 및 추가
+    const text = document.createElement("div");
+    text.classList.add("Card_ACC");
+    text.innerText = msg || (ch ? "Good!" : "Miss");
+    target.appendChild(text);
+
+    // 상태 저장
+    this.liveWantBeatPattern.output.state = ch;
+    this.liveWantBeatPattern.output.avgtime = avg;
+  }
+  printCardAccuracy() {
+    if (this.loop === 0) {
       // 첫번째 루프
       return;
     }
-    var target = this.Cards[this.live_card_number - 1];
-    if (this.live_card_number == 0) {
-      target = this.Cards[this.Cards.length - 1];
+    // Get previous card (wrap around to last card if at start)
+    const prevIndex = this.live_card_number === 0 ? this.Cards.length - 1 : this.live_card_number - 1;
+    const target = this.Cards[prevIndex];
+
+    // 기존 ACC 요소 제거
+    const oldACC = target.querySelector(".Card_ACC");
+    if (oldACC) {
+      oldACC.remove();
     }
 
-    try {
-      target.removeChild(target.getElementsByClassName("Card_ACC")[0]);
-    } catch (e) {}
-
-    if (this.LiveWantBeatpattern.need.join("") == [].join("")) {
-      if (this.LiveWantBeatpattern.have.length === 0) {
-        this.PrintStateGame(true, 0, null, target);
+    if (this.liveWantBeatPattern.need.length === 0) {
+      if (this.liveWantBeatPattern.have.length === 0) {
+        this.printStateGame(true, 0, "", target);
       } else {
-        this.PrintStateGame(false, 0, null, target);
+        this.printStateGame(false, 0, "", target);
       }
       return;
-    } else if (this.LiveWantBeatpattern.have.length === 0) {
-      this.PrintStateGame(false, 0, null, target);
+    } else if (this.liveWantBeatPattern.have.length === 0) {
+      this.printStateGame(false, 0, "", target);
       return;
     }
 
-    let sum = this.LiveWantBeatpattern.have.reduce((a, c) => a + c);
-    let avg = sum / this.LiveWantBeatpattern.have.length;
-    this.LiveWantBeatpattern.output.avgtime = avg;
+    const sum = this.liveWantBeatPattern.have.reduce((a, c) => a + c);
+    const avg = sum / this.liveWantBeatPattern.have.length;
+    this.liveWantBeatPattern.output.avgtime = avg;
 
-    this.LiveWantBeatpattern.output.state =
-      this.LiveWantBeatpattern.have.length ==
-        this.LiveWantBeatpattern.need.length &&
-      this.LiveWantBeatpattern.output.avgtime <= 150;
+    this.liveWantBeatPattern.output.state =
+      this.liveWantBeatPattern.have.length ===
+        this.liveWantBeatPattern.need.length &&
+      this.liveWantBeatPattern.output.avgtime <= TIMING_THRESHOLD_MS;
 
-    if (this.LiveWantBeatpattern.output.state) {
-      this.PrintStateGame(true, avg, null, target);
+    if (this.liveWantBeatPattern.output.state) {
+      this.printStateGame(true, avg, "", target);
     } else {
       if (
-        this.LiveWantBeatpattern.have.length !=
-        this.LiveWantBeatpattern.need.length
+        this.liveWantBeatPattern.have.length !==
+        this.liveWantBeatPattern.need.length
       ) {
-        this.PrintStateGame(false, avg, "Too Many", target);
+        this.printStateGame(false, avg, "Too Many", target);
       } else {
-        this.PrintStateGame(false, avg, "Too Slow OR Fast", target);
+        this.printStateGame(false, avg, "Too Slow OR Fast", target);
       }
     }
-    if (isNaN(this.LiveWantBeatpattern.output.avgtime)) {
-      this.LiveWantBeatpattern.output.avgtime = 100;
-    }
   }
-  InitLiveWantBeatpattern(need) {
-    this.LiveWantBeatpattern = {
+  initLiveWantBeatPattern(need) {
+    this.liveWantBeatPattern = {
       need: need,
       have: [],
       output: {
@@ -208,74 +234,67 @@ class Game {
       },
     };
   }
-  AddHistory(history) {
-    this.history.push(history);
-  }
-  AddLoop() {
-    if (this.loop != this.max_loop) this.loop++;
+  addLoop() {
+    if (this.loop !== this.max_loop) this.loop++;
     else return true;
     return false;
   }
-  Next() {
+  next() {
+    const levelPatterns = Level[this.level];
     this.beatlist.changebeatlistitem(
       getRandomArbitrary(0, this.beatlist.beatlist.length),
-      Level[this.level][getRandomArbitrary(0, Level[this.level].length)]
+      levelPatterns[getRandomArbitrary(0, levelPatterns.length)]
     );
   }
+  getHistoryAvgTime() {
+    if (this.history.length === 0) return 0;
+
+    const totalAvgTime = this.history.reduce((sum, entry) => sum + entry.output.avgtime, 0);
+    return totalAvgTime / this.history.length;
+  }
+
+  getHistoryErrorCount() {
+    if (this.history.length === 0) return 0;
+
+    return this.history.filter(entry => entry.output.state === false).length;
+  }
+
+  // Backward compatibility
   gethistoryAvgTime() {
-    return (
-      this.history
-        .map((e) => e.map((e) => e.output.avgtime))
-        .map((e) => e.reduce((a, c) => a + c) / e.length)
-        .reduce((a, c) => a + c) / this.history.length
-    );
+    return this.getHistoryAvgTime();
   }
-  geethistoryErrclick() {
-    return this.history
-      .map((e) => e.map((e) => e.output.state))
-      .map((e) => e.filter((e) => e == false).length)
-      .reduce((a, c) => a + c);
+
+  gethistoryErrclick() {
+    return this.getHistoryErrorCount();
   }
-  UpdateCardTexts(list) {
+  updateCardTexts(list) {
     for (let i = 0; i < list.length; i++) {
       let target = this.Cards[i];
-      try {
-        target.removeChild(target.getElementsByClassName("Card_img")[0]);
-      } catch (e) {}
+      let existingImg = target.querySelector(".Card_img");
+      const pattern = list[i].join("");
+      const imgSrc = PATTERN_TO_IMAGE.get(pattern) || "./img/0.png";
 
-      let img = document.createElement("img");
-      img.className = "Card_img";
-
-      if (list[i].join("") === [1].join("")) {
-        img.src = "./img/4.png";
-      } else if (list[i].join("") === [2, 2].join("")) {
-        img.src = "./img/8.png";
-      } else if (list[i].join("") === [2, 4, 4].join("")) {
-        img.src = "./img/2-4-4.png";
-      } else if (list[i].join("") === [4, 4, 2].join("")) {
-        img.src = "./img/4-4-2.png";
-      } else if (list[i].join("") === [4, 4, 4, 4].join("")) {
-        img.src = "./img/16.png";
-      } else if (list[i].join("") === [3, 3, 3].join("")) {
-        img.src = "./img/3.png";
-      } else if (list[i].length === 0) {
-        img.src = "./img/0.png";
+      if (existingImg) {
+        // 기존 이미지가 있으면 src만 변경
+        existingImg.src = imgSrc;
+      } else {
+        // 없으면 새로 생성
+        let img = document.createElement("img");
+        img.className = "Card_img";
+        img.src = imgSrc;
+        target.appendChild(img);
       }
-      target.appendChild(img);
     }
   }
-  UpdateCardChose() {
-    let target = this.Cards[this.live_card_number];
-    try {
-      target.classList.remove("good");
-      target.classList.remove("bad");
-    } catch (e) {}
+  updateCardChosen() {
+    const target = this.Cards[this.live_card_number];
+    target.classList.remove("good", "bad");
     target.classList.toggle("Card_CH");
-    if (this.live_card_number == 0) {
-      this.Cards[this.Cards.length - 1].classList.remove("Card_CH");
-    } else {
-      this.Cards[this.live_card_number - 1].classList.remove("Card_CH");
-    }
+
+    const prevCard = this.live_card_number === 0
+      ? this.Cards[this.Cards.length - 1]
+      : this.Cards[this.live_card_number - 1];
+    prevCard.classList.remove("Card_CH");
   }
 }
 

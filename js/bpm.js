@@ -1,26 +1,47 @@
-const Minute = 60 * 1000;
+const MS_PER_MINUTE = 60 * 1000;
 
 class BPM {
-  constructor(BPM, delay) {
-    this.BPM = BPM; // 그냥 BPM 값
-    this.delay = delay;
-    this.last = 0;
-    this.lastbeat = 1;
+  constructor(bpm, delayMs = 0) {
+    this.bpm = bpm; // Beats per minute
+    this.delayMs = delayMs; // User input delay compensation in milliseconds
+    this.lastTimestamp = 0; // Last beat timestamp (from performance.now())
+    this.lastBeatDivision = 1; // Last beat division (1, 2, 3, 4)
   }
-  BPMCheck(now, beat) {
-    if (this.last == 0) {
-      this.last = now;
+
+  /**
+   * Calculate timing accuracy for a beat input
+   * @param {number} now - Current timestamp from performance.now() in milliseconds
+   * @param {number} beatDivision - Beat division (1=whole, 2=half, 3=triplet, 4=quarter)
+   * @returns {number} Timing error in milliseconds (positive=early, negative=late)
+   */
+  calculateTimingError(now, beatDivision) {
+    // First beat - just record timestamp
+    if (this.lastTimestamp === 0) {
+      this.lastTimestamp = now;
+      this.lastBeatDivision = beatDivision;
       return 0;
-    } else if (this.lastbeat != beat && beat == 1) {
-      this.last = now - Minute / this.BPM / beat;
     }
-    const beat_ms = now - this.last - this.delay;
-    const needbpm = Minute / this.BPM / beat;
 
-    this.last = now;
-    this.lastbeat = beat;
+    // Reset timing on beat division change to 1 (new measure)
+    if (this.lastBeatDivision !== beatDivision && beatDivision === 1) {
+      const expectedInterval = MS_PER_MINUTE / this.bpm / beatDivision;
+      this.lastTimestamp = now - expectedInterval;
+    }
 
-    return Math.floor(needbpm - beat_ms);
+    // Calculate timing
+    const actualElapsed = now - this.lastTimestamp - this.delayMs;
+    const expectedInterval = MS_PER_MINUTE / this.bpm / beatDivision;
+
+    this.lastTimestamp = now;
+    this.lastBeatDivision = beatDivision;
+
+    // Return timing error: positive = early, negative = late
+    return Math.floor(expectedInterval - actualElapsed);
+  }
+
+  // Backward compatibility alias
+  BPMCheck(now, beat) {
+    return this.calculateTimingError(now, beat);
   }
 }
 

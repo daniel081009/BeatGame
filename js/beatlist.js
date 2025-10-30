@@ -1,22 +1,34 @@
+const CARDS_PER_SET = 4;
+
 class BeatList {
   constructor(beatlist) {
-    if (beatlist.length == 4) {
-      this.beatlist = beatlist;
-    } else {
-      throw new Error("beatlist length is not 4");
+    if (beatlist.length !== CARDS_PER_SET) {
+      throw new Error(`BeatList must have exactly ${CARDS_PER_SET} items, got ${beatlist.length}`);
     }
+    this.beatlist = beatlist;
   }
+
+  getBeatPattern(index) {
+    if (index < 0 || index >= this.beatlist.length) {
+      throw new Error(`Index ${index} out of bounds [0, ${this.beatlist.length})`);
+    }
+    return this.beatlist[index];
+  }
+
+  setBeatPattern(index, pattern) {
+    if (index < 0 || index >= this.beatlist.length) {
+      throw new Error(`Index ${index} out of bounds [0, ${this.beatlist.length})`);
+    }
+    this.beatlist[index] = pattern;
+  }
+
+  // Backward compatibility
   getbeatlist(i) {
-    return this.beatlist[i];
+    return this.getBeatPattern(i);
   }
-  getbeatlistlength() {
-    return this.beatlist.length;
-  }
-  clearbeatlist() {
-    this.beatlist = [[1], [1], [1], [1]];
-  }
+
   changebeatlistitem(i, item) {
-    this.beatlist[i] = item;
+    this.setBeatPattern(i, item);
   }
 }
 
